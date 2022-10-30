@@ -14,7 +14,7 @@ from copy import copy
 import numpy as np
 from sklearn.utils.random import sample_without_replacement
 
-from .functions import _Function
+from .functions import _Function, make_ts_function
 from .utils import check_random_state
 
 
@@ -131,6 +131,9 @@ class _Program(object):
                  p_point_replace,
                  parsimony_coefficient,
                  random_state,
+                 fixed_function_set,
+                 ts_function_set,
+                 d_ls,
                  transformer=None,
                  feature_names=None,
                  program=None):
@@ -162,6 +165,10 @@ class _Program(object):
         self._max_samples = None
         self._indices_state = None
 
+        self.ts_function_set = ts_function_set
+        self.fixed_function_set = fixed_function_set
+        self.d_ls = d_ls
+
     def build_program(self, random_state):
         """Build a naive random program.
 
@@ -183,34 +190,61 @@ class _Program(object):
         max_depth = random_state.randint(*self.init_depth)
 
         # Start a program with a function to avoid degenerative programs
-        function = random_state.randint(len(self.function_set))
-        function = self.function_set[function]
+
+        # function = random_state.randint(len(self.function_set))
+        function = random_state.randint(len(self.function_set) + len(self.ts_function_set))
+        # function = self.function_set[function]
+        if function < len(self.function_set):
+            function = self.function_set[function]
+        else:
+            function = make_ts_function(self.ts_function_set[function - len(self.function_set)],
+                                        self.d_ls, random_state)
+
         program = [function]
         terminal_stack = [function.arity]
 
         while terminal_stack:
             depth = len(terminal_stack)
-            choice = self.n_features + len(self.function_set)
+
+            # choice = self.n_features + len(self.function_set)
+            choice = self.n_features + len(self.function_set) + len(self.ts_function_set) + \
+                    len(self.fixed_function_set)
+
             choice = random_state.randint(choice)
+
             # Determine if we are adding a function or terminal
+            # if (depth < max_depth) and (method == 'full' or
+            #                             choice <= len(self.function_set)):
             if (depth < max_depth) and (method == 'full' or
-                                        choice <= len(self.function_set)):
+                                        choice < len(self.function_set) + len(self.ts_function_set)):
                 function = random_state.randint(len(self.function_set))
-                function = self.function_set[function]
+                # function = self.function_set[function]
+                if choice < len(self.function_set):
+                    function = self.function_set[function]
+                else:
+                    function = make_ts_function(self.ts_function_set[function - len(self.function_set)],
+                                                self.d_ls, random_state)
                 program.append(function)
                 terminal_stack.append(function.arity)
             else:
-                # We need a terminal, add a variable or constant
+                # We need a terminal, add a variable or a fixed function or constant
                 if self.const_range is not None:
-                    terminal = random_state.randint(self.n_features + 1)
+                    # terminal = random_state.randint(self.n_features + 1)
+                    terminal = random_state.randint(self.n_features + len(self.fixed_function_set) + 1)
                 else:
-                    terminal = random_state.randint(self.n_features)
-                if terminal == self.n_features:
+                    # terminal = random_state.randint(self.n_features)
+                    terminal = random_state.randint(self.n_features + len(self.fixed_function_set))
+                # if terminal == self.n_features:
+                if terminal == self.n_features + len(self.fixed_function_set):
                     terminal = random_state.uniform(*self.const_range)
                     if self.const_range is None:
                         # We should never get here
                         raise ValueError('A constant was produced with '
-                                         'const_range=None.')
+                                        'const_range=None.')
+                # 新增
+                elif terminal >= self.n_features:
+                    terminal = make_ts_function(self.fixed_function_set[terminal - self.n_features],
+                                                self.d_ls, random_state)
                 program.append(terminal)
                 terminal_stack[-1] -= 1
                 while terminal_stack[-1] == 0:
@@ -222,12 +256,21 @@ class _Program(object):
         # We should never get here
         return None
 
+
     def validate_program(self):
         """Rough check that the embedded program in the object is valid."""
         terminals = [0]
         for node in self.program:
             if isinstance(node, _Function):
-                terminals.append(node.arity)
+                # 新增条件
+                if node.arity != 0:
+                    terminals.append(node.arity)
+                # 新增
+                else:
+                    terminals[-1] -= 1
+                    while terminals[-1] == 0:
+                        terminals.pop()
+                        terminals[-1] -= 1
             else:
                 terminals[-1] -= 1
                 while terminals[-1] == 0:
@@ -241,8 +284,20 @@ class _Program(object):
         output = ''
         for i, node in enumerate(self.program):
             if isinstance(node, _Function):
-                terminals.append(node.arity)
-                output += node.name + '('
+                # 新增条件
+                if node.arity != 0:
+                    terminals.append(node.arity)
+                    output += node.name + '('
+                # 新增
+                else:
+                    output += node.name + '(%s)' % ', '.join(node.params_need)
+                    terminals[-1] -= 1
+                    while terminals[-1] == 0:
+                        terminals.pop()
+                        terminals[-1] -= 1
+                        output += ')'
+                    if i != len(self.program) - 1:
+                        output += ', '
             else:
                 if isinstance(node, int):
                     if self.feature_names is None:
@@ -326,8 +381,16 @@ class _Program(object):
         depth = 1
         for node in self.program:
             if isinstance(node, _Function):
-                terminals.append(node.arity)
-                depth = max(len(terminals), depth)
+                # 新增条件
+                if node.arity != 0:
+                    terminals.append(node.arity)
+                    depth = max(len(terminals), depth)
+                # 新增
+                else:
+                    terminals[-1] -= 1
+                    while terminals[-1] == 0:
+                        terminals.pop()
+                        terminals[-1] -= 1
             else:
                 terminals[-1] -= 1
                 while terminals[-1] == 0:
@@ -366,17 +429,30 @@ class _Program(object):
         for node in self.program:
 
             if isinstance(node, _Function):
-                apply_stack.append([node])
+                # 新增
+                if node.arity != 0:
+                    apply_stack.append([node])
+                else:
+                    args_ = [X[:, self.feature_names.index(name)] for name in node.params_need]
+                    t = node(*args_)
+                    if apply_stack:
+                        apply_stack[-1].append(t)
+                    else:
+                        return t
             else:
                 # Lazily evaluate later
-                apply_stack[-1].append(node)
+                if apply_stack:
+                    apply_stack[-1].append(node)
+                else:
+                    return np.repeat(node, X.shape[0]) if isinstance(node, float) \
+                        else X[:, node]
 
             while len(apply_stack[-1]) == apply_stack[-1][0].arity + 1:
                 # Apply functions that have sufficient arguments
                 function = apply_stack[-1][0]
                 terminals = [np.repeat(t, X.shape[0]) if isinstance(t, float)
-                             else X[:, t] if isinstance(t, int)
-                             else t for t in apply_stack[-1][1:]]
+                            else X[:, t] if isinstance(t, int)
+                else t for t in apply_stack[-1][1:]]
                 intermediate_result = function(*terminals)
                 if len(apply_stack) != 1:
                     apply_stack.pop()
@@ -639,31 +715,50 @@ class _Program(object):
 
         # Get the nodes to modify
         mutate = np.where(random_state.uniform(size=len(program)) <
-                          self.p_point_replace)[0]
+                        self.p_point_replace)[0]
 
         for node in mutate:
+            mutated = False
             if isinstance(program[node], _Function):
                 arity = program[node].arity
-                # Find a valid replacement with same arity
-                replacement = len(self.arities[arity])
-                replacement = random_state.randint(replacement)
-                replacement = self.arities[arity][replacement]
-                program[node] = replacement
-            else:
+                # 新增条件
+                if arity != 0:
+                    # Find a valid replacement with same arity
+                    replacement = len(self.arities[arity])
+                    replacement = random_state.randint(replacement)
+                    replacement = self.arities[arity][replacement]
+                    if replacement.is_ts:
+                        replacement = make_ts_function(replacement, self.d_ls, random_state)
+                    program[node] = replacement
+                    # 新增
+                    mutated = True
+            if not mutated:
                 # We've got a terminal, add a const or variable
                 if self.const_range is not None:
-                    terminal = random_state.randint(self.n_features + 1)
+                    # terminal = random_state.randint(self.n_features + 1)
+                    terminal = random_state.randint(self.n_features + len(self.fixed_function_set) + 1)
                 else:
-                    terminal = random_state.randint(self.n_features)
-                if terminal == self.n_features:
+                    # terminal = random_state.randint(self.n_features)
+                    terminal = random_state.randint(self.n_features + len(self.fixed_function_set))
+                # if terminal == self.n_features:
+                if terminal == self.n_features + len(self.fixed_function_set):
                     terminal = random_state.uniform(*self.const_range)
                     if self.const_range is None:
                         # We should never get here
                         raise ValueError('A constant was produced with '
-                                         'const_range=None.')
-                program[node] = terminal
+                                        'const_range=None.')
+                    # 新增
+                    program[node] = terminal
+                # 新增
+                elif terminal >= self.n_features:
+                    replacement = self.fixed_function_set[terminal - self.n_features]
+                    replacement = make_ts_function(replacement, self.d_ls, random_state)
+                    program[node] = replacement
+                else:
+                    program[node] = terminal
 
         return program, list(mutate)
+
 
     depth_ = property(_depth)
     length_ = property(_length)

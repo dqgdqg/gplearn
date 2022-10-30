@@ -12,6 +12,11 @@ own custom functions.
 import numpy as np
 from joblib import wrap_non_picklable_objects
 
+import talib as ta
+import pandas as pd
+from scipy import stats
+from copy import copy
+
 __all__ = ['make_function']
 
 
@@ -37,13 +42,46 @@ class _Function(object):
 
     """
 
-    def __init__(self, function, name, arity):
+    def __init__(self, function, name, arity, is_ts=False, params_need : list =None):
         self.function = function
         self.name = name
         self.arity = arity
 
+        self.is_ts = is_ts
+        self.d = 0
+        self.params_need = params_need
+
     def __call__(self, *args):
-        return self.function(*args)
+        if not self.is_ts:
+            return self.function(*args)
+        else:
+            if self.d == 0:
+                raise AttributeError('Please set "d"')
+            else:
+                return self.function(*args, self.d)
+    
+    def set_d(self, d):
+        self.d = d
+        self.name += '_%d' % self.d
+
+def make_ts_function(function, d_ls, random_state):
+    """
+    Parameters
+    ----------
+    function: _Function
+
+    d_ls: list
+        参数 'd' 可选范围.
+
+    random_state: RandomState instance
+        随机数生成器.
+
+    """
+    d = random_state.randint(len(d_ls))
+    d = d_ls[d]
+    function_ = copy(function)
+    function_.set_d(d)
+    return function_
 
 
 def make_function(*, function, name, arity, wrap=True):
@@ -149,6 +187,83 @@ def _sigmoid(x1):
     with np.errstate(over='ignore', under='ignore'):
         return 1 / (1 + np.exp(-x1))
 
+def _ts_delay(x1, d):
+    return pd.Series(x1).shift(d).values
+ts_delay1 = _Function(function=_ts_delay, name='ts_delay', arity=1, is_ts=True)
+
+def _ts_delta(x1, d):
+    return x1 - _ts_delay(x1, d)
+ts_delta1 = _Function(function=_ts_delta, name='ts_delta', arity=1, is_ts=True)
+
+def _ts_min(x1, d):
+    return pd.Series(x1).rolling(d, min_periods=int(d / 2)).min()
+ts_min1 = _Function(function=_ts_min, name='ts_min', arity=1, is_ts=True)
+
+def _ts_max(x1, d):
+    return pd.Series(x1).rolling(d, min_periods=int(d / 2)).max()
+ts_max1 = _Function(function=_ts_max, name='ts_max', arity=1, is_ts=True)
+
+def _ts_argmin(x1, d):
+    return pd.Series(x1).rolling(d, min_periods=int(d / 2)).apply(lambda x: x.argmin())
+ts_argmin1 = _Function(function=_ts_argmin, name='ts_argmin', arity=1, is_ts=True)
+
+
+def _ts_argmax(x1, d):
+    return pd.Series(x1).rolling(d, min_periods=int(d / 2)).apply(lambda x: x.argmax())
+ts_argmax1 = _Function(function=_ts_argmax, name='ts_argmax', arity=1, is_ts=True)
+
+def _ts_rank(x1, d):
+    return pd.Series(x1).rolling(d, min_periods=int(d / 2)).apply(
+        lambda x: stats.percentileofscore(x, x[-1]) / 100
+    )
+ts_rank1 = _Function(function=_ts_rank, name='ts_rank', arity=1, is_ts=True)
+
+def _ts_sum(x1, d):
+    return pd.Series(x1).rolling(d, min_periods=int(d / 2)).sum()
+ts_sum1 = _Function(function=_ts_sum, name='ts_sum', arity=1, is_ts=True)
+
+def _ts_stddev(x1, d):
+    return pd.Series(x1).rolling(d, min_periods=int(d / 2)).std()
+ts_stddev1 = _Function(function=_ts_stddev, name='ts_stddev', arity=1, is_ts=True)
+
+def _ts_corr(x1, x2, d):
+    return pd.Series(x1).rolling(d, min_periods=int(d / 2)).corr(pd.Series(x2))
+ts_corr2 = _Function(function=_ts_corr, name='ts_corr', arity=2, is_ts=True)
+
+def _ts_mean_return(x1, d):
+    return pd.Series(x1).pct_change().rolling(d, min_periods=int(d / 2)).mean()
+ts_mean_return1 = _Function(function=_ts_mean_return, name='ts_mean_return',
+                            arity=1, is_ts=True)
+
+
+ts_dema1 = _Function(function=ta.DEMA, name='DEMA', arity=1, is_ts=True)
+ts_kama1 = _Function(function=ta.KAMA, name='KAMA', arity=1, is_ts=True)
+ts_ma1 = _Function(function=ta.MA, name='MA', arity=1, is_ts=True)
+ts_midpoint1 = _Function(function=ta.MIDPOINT, name='MIDPOINT', arity=1, is_ts=True)
+ts_beta2 = _Function(function=ta.BETA, name='BETA', arity=2, is_ts=True)
+ts_lr_angle1 = _Function(function=ta.LINEARREG_ANGLE, name='LR_ANGLE',
+                         arity=1, is_ts=True)
+ts_lr_intercept1: _Function = _Function(function=ta.LINEARREG_INTERCEPT,
+                                        name='LR_INTERCEPT', arity=1, is_ts=True)
+ts_lr_slope1 = _Function(function=ta.LINEARREG_SLOPE, name='LR_SLOPE',
+                         arity=1, is_ts=True)
+ts_ht1 = _Function(function=ta.HT_DCPHASE, name='HT', arity=1, is_ts=True)
+
+
+fixed_midprice = _Function(function=ta.MIDPRICE, name='midprice', arity=0, is_ts=True,
+                           params_need=['Ask', 'Bid'])
+fixed_aroonosc = _Function(function=ta.AROONOSC, name='AROONOSC', arity=0, is_ts=True,
+                           params_need=['Ask', 'Bid'])
+fixed_willr = _Function(function=ta.WILLR, name='WILLR', arity=0, is_ts=True,
+                        params_need=['Ask', 'Bid', 'AvgPrice'])
+fixed_cci = _Function(function=ta.CCI, name='CCI', arity=0, is_ts=True,
+                      params_need=['Ask', 'Bid', 'AvgPrice'])
+fixed_adx = _Function(function=ta.ADX, name='ADX', arity=0, is_ts=True,
+                      params_need=['Ask', 'Bid', 'AvgPrice'])
+fixed_mfi = _Function(function=ta.MFI, name='MFI', arity=0, is_ts=True,
+                      params_need=['Ask', 'Bid', 'AvgPrice', 'volume'])
+fixed_natr = _Function(function=ta.NATR, name='NATR', arity=0, is_ts=True,
+                       params_need=['Ask', 'Bid', 'AvgPrice'])
 
 add2 = _Function(function=np.add, name='add', arity=2)
 sub2 = _Function(function=np.subtract, name='sub', arity=2)
@@ -165,6 +280,39 @@ sin1 = _Function(function=np.sin, name='sin', arity=1)
 cos1 = _Function(function=np.cos, name='cos', arity=1)
 tan1 = _Function(function=np.tan, name='tan', arity=1)
 sig1 = _Function(function=_sigmoid, name='sig', arity=1)
+
+_ts_function_map = {
+    'ts_delay': ts_delay1,
+    'ts_delta': ts_delta1,
+    'ts_min': ts_min1,
+    'ts_max': ts_max1,
+    'ts_argmin': ts_argmin1,
+    'ts_argmax': ts_argmax1,
+    'ts_rank': ts_rank1,
+    'ts_stddev': ts_stddev1,
+    'ts_corr': ts_corr2,
+    'ts_mean_return': ts_mean_return1,
+
+    'DEMA': ts_dema1,
+    'KAMA': ts_kama1,
+    'MA': ts_ma1,
+    'MIDPOINT': ts_midpoint1,
+    'BETA': ts_beta2,
+    'LR_ANGLE': ts_lr_angle1,
+    'LR_INTERCEPT': ts_lr_intercept1,
+    'LR_SLOPE': ts_lr_slope1,
+    'HT': ts_ht1
+}
+
+_fixed_function_map = {
+    'MIDPRICE': fixed_midprice,
+    'AROONOSC': fixed_aroonosc,
+    'WILLR': fixed_willr,
+    'CCI': fixed_cci,
+    'ADX': fixed_adx,
+    'MFI': fixed_mfi,
+    'NATR': fixed_natr
+}
 
 _function_map = {'add': add2,
                  'sub': sub2,

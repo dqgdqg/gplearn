@@ -26,7 +26,7 @@ from sklearn.utils.multiclass import check_classification_targets
 
 from ._program import _Program
 from .fitness import _fitness_map, _Fitness
-from .functions import _function_map, _Function, sig1 as sigmoid
+from .functions import _function_map, _ts_function_map, _fixed_function_map, _Function, sig1 as sigmoid
 from .utils import _partition_estimators
 from .utils import check_random_state
 
@@ -52,6 +52,10 @@ def _parallel_evolve(n_programs, parents, X, y, sample_weight, seeds, params):
     p_point_replace = params['p_point_replace']
     max_samples = params['max_samples']
     feature_names = params['feature_names']
+
+    ts_function_set = params['ts_function_set']
+    fixed_function_set = params['fixed_function_set']
+    d_ls = params['d_ls']
 
     max_samples = int(max_samples * n_samples)
 
@@ -115,6 +119,9 @@ def _parallel_evolve(n_programs, parents, X, y, sample_weight, seeds, params):
                           'parent_nodes': []}
 
         program = _Program(function_set=function_set,
+                           ts_function_set=ts_function_set,
+                           fixed_function_set=fixed_function_set,
+                           d_ls=d_ls,
                            arities=arities,
                            init_depth=init_depth,
                            init_method=init_method,
@@ -176,6 +183,9 @@ class BaseSymbolic(BaseEstimator, metaclass=ABCMeta):
                  init_depth=(2, 6),
                  init_method='half and half',
                  function_set=('add', 'sub', 'mul', 'div'),
+                 ts_function_set=None,
+                 fixed_function_set=None,
+                 d_ls=None,
                  transformer=None,
                  metric='mean absolute error',
                  parsimony_coefficient=0.001,
@@ -203,6 +213,9 @@ class BaseSymbolic(BaseEstimator, metaclass=ABCMeta):
         self.init_depth = init_depth
         self.init_method = init_method
         self.function_set = function_set
+        self.ts_function_set = ts_function_set
+        self.fixed_function_set = fixed_function_set
+        self.d_ls = d_ls
         self.transformer = transformer
         self.metric = metric
         self.parsimony_coefficient = parsimony_coefficient
@@ -341,12 +354,71 @@ class BaseSymbolic(BaseEstimator, metaclass=ABCMeta):
         if not self._function_set:
             raise ValueError('No valid functions found in `function_set`.')
 
+
+        self._ts_function_set = []
+        for function in self.ts_function_set:
+            if isinstance(function, str):
+                if function not in _function_map:
+                    raise ValueError('invalid function name %s found in '
+                                     '`function_set`.' % function)
+                self._ts_function_set.append(_function_map[function])
+            elif isinstance(function, _Function):
+                self._ts_function_set.append(function)
+            else:
+                raise ValueError('invalid type %s found in `function_set`.'
+                                 % type(function))
+        if not self._ts_function_set:
+            raise ValueError('No valid functions found in `function_set`.')
+
+
+        self._ts_function_set = []
+        for function in self.ts_function_set:
+            if isinstance(function, str):
+                if function not in _ts_function_map:
+                    raise ValueError('invalid function name %s found in '
+                                     '`ts_function_set`.' % function)
+                self._ts_function_set.append(_ts_function_map[function])
+            elif isinstance(function, _Function):
+                self._ts_function_set.append(function)
+            else:
+                raise ValueError('invalid type %s found in `ts_function_set`.'
+                                 % type(function))
+        if not self._ts_function_set:
+            raise ValueError('No valid functions found in `ts_function_set`.')
+
+
+        self._fixed_function_set = []
+        for function in self._fixed_function_set:
+            if isinstance(function, str):
+                if function not in _fixed_function_map:
+                    raise ValueError('invalid function name %s found in '
+                                     '`fixed_function_set`.' % function)
+                self._fixed_function_set.append(_fixed_function_map[function])
+            elif isinstance(function, _Function):
+                self._fixed_function_set.append(function)
+            else:
+                raise ValueError('invalid type %s found in `fixed_function_set`.'
+                                 % type(function))
+        if not self._fixed_function_set:
+            raise ValueError('No valid functions found in `fixed_function_set`.')
+
         # For point-mutation to find a compatible replacement node
         self._arities = {}
         for function in self._function_set:
             arity = function.arity
             self._arities[arity] = self._arities.get(arity, [])
             self._arities[arity].append(function)
+
+        for function in self._ts_function_set:
+            arity = function.arity
+            self._arities[arity] = self._arities.get(arity, [])
+            self._arities[arity].append(function)
+
+        for function in self._fixed_function_set:
+            arity = function.arity
+            self._arities[arity] = self._arities.get(arity, [])
+            self._arities[arity].append(function)
+
 
         if isinstance(self.metric, _Fitness):
             self._metric = self.metric
@@ -423,6 +495,9 @@ class BaseSymbolic(BaseEstimator, metaclass=ABCMeta):
         else:
             params['_transformer'] = None
         params['function_set'] = self._function_set
+        params['ts_function_set'] = self._ts_function_set
+        params['fixed_function_set'] = self._fixed_function_set
+        params['d_ls'] = self.d_ls
         params['arities'] = self._arities
         params['method_probs'] = self._method_probs
 
@@ -1398,6 +1473,9 @@ class SymbolicTransformer(BaseSymbolic, TransformerMixin):
                  init_depth=(2, 6),
                  init_method='half and half',
                  function_set=('add', 'sub', 'mul', 'div'),
+                 ts_function_set=None,
+                 fixed_function_set=None,
+                 d_ls=None,
                  metric='pearson',
                  parsimony_coefficient=0.001,
                  p_crossover=0.9,
@@ -1423,6 +1501,9 @@ class SymbolicTransformer(BaseSymbolic, TransformerMixin):
             init_depth=init_depth,
             init_method=init_method,
             function_set=function_set,
+            ts_function_set=None,
+            fixed_function_set=None,
+            d_ls=None,
             metric=metric,
             parsimony_coefficient=parsimony_coefficient,
             p_crossover=p_crossover,
