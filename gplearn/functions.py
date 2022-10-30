@@ -214,7 +214,7 @@ ts_argmax1 = _Function(function=_ts_argmax, name='ts_argmax', arity=1, is_ts=Tru
 
 def _ts_rank(x1, d):
     return pd.Series(x1).rolling(d, min_periods=int(d / 2)).apply(
-        lambda x: stats.percentileofscore(x, x[-1]) / 100
+        lambda x: stats.percentileofscore(x, x[x.last_valid_index()]) / 100
     )
 ts_rank1 = _Function(function=_ts_rank, name='ts_rank', arity=1, is_ts=True)
 
@@ -236,34 +236,81 @@ ts_mean_return1 = _Function(function=_ts_mean_return, name='ts_mean_return',
                             arity=1, is_ts=True)
 
 
-ts_dema1 = _Function(function=ta.DEMA, name='DEMA', arity=1, is_ts=True)
-ts_kama1 = _Function(function=ta.KAMA, name='KAMA', arity=1, is_ts=True)
-ts_ma1 = _Function(function=ta.MA, name='MA', arity=1, is_ts=True)
-ts_midpoint1 = _Function(function=ta.MIDPOINT, name='MIDPOINT', arity=1, is_ts=True)
-ts_beta2 = _Function(function=ta.BETA, name='BETA', arity=2, is_ts=True)
-ts_lr_angle1 = _Function(function=ta.LINEARREG_ANGLE, name='LR_ANGLE',
+def _ts_dema1(x1, d):
+    try:
+        return ta.DEMA(x1, d)
+    except Exception:
+        return np.zeros_like(x1.shape[0])
+
+def _ts_kama1(x1, d):
+    try:
+        return ta.KAMA(x1, d)
+    except Exception:
+        return np.zeros_like(x1.shape[0])
+
+def _ts_ma1(x1, d):
+    try:
+        return ta.MA(x1, d)
+    except Exception:
+        return np.zeros_like(x1.shape[0])
+
+def _ts_midpoint1(x1, d):
+    try:
+        return ta.MIDPOINT(x1, d)
+    except Exception:
+        return np.zeros_like(x1.shape[0])
+
+def _ts_beta2(x1, x2, d):
+    try:
+        return ta.BETA(x1, x2, d)
+    except Exception:
+        return np.zeros_like(x1.shape[0])
+
+def _ts_lr_angle1(x1, d):
+    try:
+        return ta.LINEARREG_ANGLE(x1, d)
+    except Exception:
+        return np.zeros_like(x1.shape[0])
+
+def _ts_lr_intercept1(x1, d):
+    try:
+        return ta.LINEARREG_INTERCEPT(x1, d)
+    except Exception:
+        return np.zeros_like(x1.shape[0])
+
+def _ts_ts_lr_slope1(x1, d):
+    try:
+        return ta.LINEARREG_SLOPE(x1, d)
+    except Exception:
+        return np.zeros_like(x1.shape[0])
+
+ts_dema1 = _Function(function=_ts_dema1, name='DEMA', arity=1, is_ts=True)
+ts_kama1 = _Function(function=_ts_kama1, name='KAMA', arity=1, is_ts=True)
+ts_ma1 = _Function(function=_ts_ma1, name='MA', arity=1, is_ts=True)
+ts_midpoint1 = _Function(function=_ts_midpoint1, name='MIDPOINT', arity=1, is_ts=True)
+ts_beta2 = _Function(function=_ts_beta2, name='BETA', arity=2, is_ts=True)
+ts_lr_angle1 = _Function(function=_ts_lr_angle1, name='LR_ANGLE',
                          arity=1, is_ts=True)
-ts_lr_intercept1: _Function = _Function(function=ta.LINEARREG_INTERCEPT,
+ts_lr_intercept1: _Function = _Function(function=_ts_lr_intercept1,
                                         name='LR_INTERCEPT', arity=1, is_ts=True)
-ts_lr_slope1 = _Function(function=ta.LINEARREG_SLOPE, name='LR_SLOPE',
+ts_lr_slope1 = _Function(function=_ts_ts_lr_slope1, name='LR_SLOPE',
                          arity=1, is_ts=True)
-ts_ht1 = _Function(function=ta.HT_DCPHASE, name='HT', arity=1, is_ts=True)
 
 
 fixed_midprice = _Function(function=ta.MIDPRICE, name='midprice', arity=0, is_ts=True,
-                           params_need=['Ask', 'Bid'])
+                           params_need=['high', 'low'])
 fixed_aroonosc = _Function(function=ta.AROONOSC, name='AROONOSC', arity=0, is_ts=True,
-                           params_need=['Ask', 'Bid'])
+                           params_need=['high', 'low'])
 fixed_willr = _Function(function=ta.WILLR, name='WILLR', arity=0, is_ts=True,
-                        params_need=['Ask', 'Bid', 'AvgPrice'])
+                        params_need=['high', 'low', 'close'])
 fixed_cci = _Function(function=ta.CCI, name='CCI', arity=0, is_ts=True,
-                      params_need=['Ask', 'Bid', 'AvgPrice'])
+                      params_need=['high', 'low', 'close'])
 fixed_adx = _Function(function=ta.ADX, name='ADX', arity=0, is_ts=True,
-                      params_need=['Ask', 'Bid', 'AvgPrice'])
+                      params_need=['high', 'low', 'close'])
 fixed_mfi = _Function(function=ta.MFI, name='MFI', arity=0, is_ts=True,
-                      params_need=['Ask', 'Bid', 'AvgPrice', 'volume'])
+                      params_need=['high', 'low', 'close', 'volume'])
 fixed_natr = _Function(function=ta.NATR, name='NATR', arity=0, is_ts=True,
-                       params_need=['Ask', 'Bid', 'AvgPrice'])
+                       params_need=['high', 'low', 'close'])
 
 add2 = _Function(function=np.add, name='add', arity=2)
 sub2 = _Function(function=np.subtract, name='sub', arity=2)
@@ -301,7 +348,6 @@ _ts_function_map = {
     'LR_ANGLE': ts_lr_angle1,
     'LR_INTERCEPT': ts_lr_intercept1,
     'LR_SLOPE': ts_lr_slope1,
-    'HT': ts_ht1
 }
 
 _fixed_function_map = {

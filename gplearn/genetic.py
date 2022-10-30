@@ -354,23 +354,6 @@ class BaseSymbolic(BaseEstimator, metaclass=ABCMeta):
         if not self._function_set:
             raise ValueError('No valid functions found in `function_set`.')
 
-
-        self._ts_function_set = []
-        for function in self.ts_function_set:
-            if isinstance(function, str):
-                if function not in _function_map:
-                    raise ValueError('invalid function name %s found in '
-                                     '`function_set`.' % function)
-                self._ts_function_set.append(_function_map[function])
-            elif isinstance(function, _Function):
-                self._ts_function_set.append(function)
-            else:
-                raise ValueError('invalid type %s found in `function_set`.'
-                                 % type(function))
-        if not self._ts_function_set:
-            raise ValueError('No valid functions found in `function_set`.')
-
-
         self._ts_function_set = []
         for function in self.ts_function_set:
             if isinstance(function, str):
@@ -386,9 +369,8 @@ class BaseSymbolic(BaseEstimator, metaclass=ABCMeta):
         if not self._ts_function_set:
             raise ValueError('No valid functions found in `ts_function_set`.')
 
-
         self._fixed_function_set = []
-        for function in self._fixed_function_set:
+        for function in self.fixed_function_set:
             if isinstance(function, str):
                 if function not in _fixed_function_map:
                     raise ValueError('invalid function name %s found in '
@@ -1501,9 +1483,9 @@ class SymbolicTransformer(BaseSymbolic, TransformerMixin):
             init_depth=init_depth,
             init_method=init_method,
             function_set=function_set,
-            ts_function_set=None,
-            fixed_function_set=None,
-            d_ls=None,
+            ts_function_set=ts_function_set,
+            fixed_function_set=fixed_function_set,
+            d_ls=d_ls,
             metric=metric,
             parsimony_coefficient=parsimony_coefficient,
             p_crossover=p_crossover,

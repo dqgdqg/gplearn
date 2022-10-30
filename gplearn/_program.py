@@ -139,6 +139,10 @@ class _Program(object):
                  program=None):
 
         self.function_set = function_set
+        self.ts_function_set = ts_function_set
+        self.fixed_function_set = fixed_function_set
+        self.d_ls = d_ls
+
         self.arities = arities
         self.init_depth = (init_depth[0], init_depth[1] + 1)
         self.init_method = init_method
@@ -164,10 +168,6 @@ class _Program(object):
         self._n_samples = None
         self._max_samples = None
         self._indices_state = None
-
-        self.ts_function_set = ts_function_set
-        self.fixed_function_set = fixed_function_set
-        self.d_ls = d_ls
 
     def build_program(self, random_state):
         """Build a naive random program.
@@ -219,7 +219,7 @@ class _Program(object):
                                         choice < len(self.function_set) + len(self.ts_function_set)):
                 function = random_state.randint(len(self.function_set))
                 # function = self.function_set[function]
-                if choice < len(self.function_set):
+                if function < len(self.function_set):
                     function = self.function_set[function]
                 else:
                     function = make_ts_function(self.ts_function_set[function - len(self.function_set)],
