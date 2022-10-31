@@ -606,6 +606,7 @@ class BaseSymbolic(BaseEstimator, metaclass=ABCMeta):
 
         if isinstance(self, TransformerMixin):
             # Find the best individuals in the final generation
+            '''
             fitness = np.array(fitness)
             if self._metric.greater_is_better:
                 hall_of_fame = fitness.argsort()[::-1][:self.hall_of_fame]
@@ -635,7 +636,14 @@ class BaseSymbolic(BaseEstimator, metaclass=ABCMeta):
                 indices = list(range(len(components)))
             self._best_programs = [self._programs[-1][i] for i in
                                    hall_of_fame[components]]
-
+            '''
+            fitness = np.array(fitness)
+            if self._metric.greater_is_better:
+                hall_of_fame = fitness.argsort()[::-1][:self.hall_of_fame]
+            else:
+                hall_of_fame = fitness.argsort()[:self.hall_of_fame]
+            self._best_programs = [self._programs[-1][i] for i in
+                                   hall_of_fame]
         else:
             # Find the best individual in the final generation
             if self._metric.greater_is_better:

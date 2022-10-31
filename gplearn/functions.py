@@ -207,7 +207,6 @@ def _ts_argmin(x1, d):
     return pd.Series(x1).rolling(d, min_periods=int(d / 2)).apply(lambda x: x.argmin())
 ts_argmin1 = _Function(function=_ts_argmin, name='ts_argmin', arity=1, is_ts=True)
 
-
 def _ts_argmax(x1, d):
     return pd.Series(x1).rolling(d, min_periods=int(d / 2)).apply(lambda x: x.argmax())
 ts_argmax1 = _Function(function=_ts_argmax, name='ts_argmax', arity=1, is_ts=True)
@@ -229,6 +228,10 @@ ts_stddev1 = _Function(function=_ts_stddev, name='ts_stddev', arity=1, is_ts=Tru
 def _ts_corr(x1, x2, d):
     return pd.Series(x1).rolling(d, min_periods=int(d / 2)).corr(pd.Series(x2))
 ts_corr2 = _Function(function=_ts_corr, name='ts_corr', arity=2, is_ts=True)
+
+def _ts_cov(x1, x2, d):
+    return pd.Series(x1).rolling(d, min_periods=int(d / 2)).cov(pd.Series(x2))
+ts_cov2 = _Function(function=_ts_cov, name='ts_cov', arity=2, is_ts=True)
 
 def _ts_mean_return(x1, d):
     return pd.Series(x1).pct_change().rolling(d, min_periods=int(d / 2)).mean()
@@ -338,6 +341,7 @@ _ts_function_map = {
     'ts_rank': ts_rank1,
     'ts_stddev': ts_stddev1,
     'ts_corr': ts_corr2,
+    'ts_cov': ts_cov2,
     'ts_mean_return': ts_mean_return1,
 
     'DEMA': ts_dema1,
