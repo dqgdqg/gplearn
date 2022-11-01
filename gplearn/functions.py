@@ -243,49 +243,49 @@ def _ts_dema1(x1, d):
     try:
         return ta.DEMA(x1, d)
     except Exception:
-        return np.zeros_like(x1.shape[0])
+        return np.zeros_like(x1)
 
 def _ts_kama1(x1, d):
     try:
         return ta.KAMA(x1, d)
     except Exception:
-        return np.zeros_like(x1.shape[0])
+        return np.zeros_like(x1)
 
 def _ts_ma1(x1, d):
     try:
         return ta.MA(x1, d)
     except Exception:
-        return np.zeros_like(x1.shape[0])
+        return np.zeros_like(x1)
 
 def _ts_midpoint1(x1, d):
     try:
         return ta.MIDPOINT(x1, d)
     except Exception:
-        return np.zeros_like(x1.shape[0])
+        return np.zeros_like(x1)
 
 def _ts_beta2(x1, x2, d):
     try:
         return ta.BETA(x1, x2, d)
     except Exception:
-        return np.zeros_like(x1.shape[0])
+        return np.zeros_like(x1)
 
 def _ts_lr_angle1(x1, d):
     try:
         return ta.LINEARREG_ANGLE(x1, d)
     except Exception:
-        return np.zeros_like(x1.shape[0])
+        return np.zeros_like(x1)
 
 def _ts_lr_intercept1(x1, d):
     try:
         return ta.LINEARREG_INTERCEPT(x1, d)
     except Exception:
-        return np.zeros_like(x1.shape[0])
+        return np.zeros_like(x1)
 
 def _ts_ts_lr_slope1(x1, d):
     try:
         return ta.LINEARREG_SLOPE(x1, d)
     except Exception:
-        return np.zeros_like(x1.shape[0])
+        return np.zeros_like(x1)
 
 ts_dema1 = _Function(function=_ts_dema1, name='DEMA', arity=1, is_ts=True)
 ts_kama1 = _Function(function=_ts_kama1, name='KAMA', arity=1, is_ts=True)
