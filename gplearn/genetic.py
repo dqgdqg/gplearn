@@ -532,7 +532,8 @@ class BaseSymbolic(BaseEstimator, metaclass=ABCMeta):
         if self.verbose:
             # Print header fields
             self._verbose_reporter()
-
+        
+        self._best_programs = []
         for gen in range(prior_generations, self.generations):
 
             start_time = time()
@@ -575,6 +576,7 @@ class BaseSymbolic(BaseEstimator, metaclass=ABCMeta):
 
             # Remove old programs that didn't make it into the new population.
             if not self.low_memory:
+                '''
                 for old_gen in np.arange(gen, 0, -1):
                     indices = []
                     for program in self._programs[old_gen]:
@@ -586,6 +588,8 @@ class BaseSymbolic(BaseEstimator, metaclass=ABCMeta):
                     for idx in range(self.population_size):
                         if idx not in indices:
                             self._programs[old_gen - 1][idx] = None
+                '''
+                pass
             elif gen > 0:
                 # Remove old generations
                 self._programs[gen - 1] = None
@@ -621,6 +625,13 @@ class BaseSymbolic(BaseEstimator, metaclass=ABCMeta):
                 if best_fitness <= self.stopping_criteria:
                     break
 
+            fitness = np.array(fitness)
+            if self._metric.greater_is_better:
+                hall_of_fame = fitness.argsort()[::-1][:self.hall_of_fame]
+            else:
+                hall_of_fame = fitness.argsort()[:self.hall_of_fame]
+            self._best_programs.append([self._programs[-1][i] for i in hall_of_fame])
+
         if isinstance(self, TransformerMixin):
             # Find the best individuals in the final generation
             '''
@@ -654,6 +665,8 @@ class BaseSymbolic(BaseEstimator, metaclass=ABCMeta):
             self._best_programs = [self._programs[-1][i] for i in
                                    hall_of_fame[components]]
             '''
+
+            '''
             fitness = np.array(fitness)
             if self._metric.greater_is_better:
                 hall_of_fame = fitness.argsort()[::-1][:self.hall_of_fame]
@@ -661,6 +674,8 @@ class BaseSymbolic(BaseEstimator, metaclass=ABCMeta):
                 hall_of_fame = fitness.argsort()[:self.hall_of_fame]
             self._best_programs = [self._programs[-1][i] for i in
                                    hall_of_fame]
+            '''
+            pass
         else:
             # Find the best individual in the final generation
             if self._metric.greater_is_better:
