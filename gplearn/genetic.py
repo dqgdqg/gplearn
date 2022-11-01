@@ -34,6 +34,23 @@ __all__ = ['SymbolicRegressor', 'SymbolicClassifier', 'SymbolicTransformer']
 
 MAX_INT = np.iinfo(np.int32).max
 
+from multiprocessing import Pool
+
+_func = None
+
+def worker_init(func):
+    global _func
+    _func = func
+  
+
+def worker(x):
+    return _func(x)
+
+
+def xmap(func, iterable, processes=None):
+    with Pool(processes, initializer=worker_init, initargs=(func,)) as p:
+        return p.map(worker, iterable)
+
 
 def _parallel_evolve(n_programs, parents, X, y, sample_weight, seeds, params):
     """Private function used to build a batch of programs within a job."""
@@ -1563,7 +1580,8 @@ class SymbolicTransformer(BaseSymbolic, TransformerMixin):
                              'n_features is %s.'
                              % (self.n_features_in_, n_features))
 
-        X_new = np.array([gp.execute(X) for gp in self._best_programs]).T
+        X_new_list = list(xmap(lambda gp: gp.execute(X), self._best_programs))
+        X_new = np.array(X_new_list).T
 
         return X_new
 
