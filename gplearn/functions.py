@@ -287,6 +287,14 @@ def _ts_ts_lr_slope1(x1, d):
     except Exception:
         return np.zeros_like(x1)
 
+def _ht_dcperiod(x1):
+    try:
+        return ta.HT_DCPERIOD(x1)
+    except Exception:
+        return np.zeros_like(x1)
+
+ht_dcperiod1 = _Function(function=_ht_dcperiod, name='HT_DCPERIOD', arity=1)
+
 ts_dema1 = _Function(function=_ts_dema1, name='DEMA', arity=1, is_ts=True)
 ts_kama1 = _Function(function=_ts_kama1, name='KAMA', arity=1, is_ts=True)
 ts_ma1 = _Function(function=_ts_ma1, name='MA', arity=1, is_ts=True)
@@ -377,4 +385,6 @@ _function_map = {'add': add2,
                  'min': min2,
                  'sin': sin1,
                  'cos': cos1,
-                 'tan': tan1}
+                 'tan': tan1,
+                 'HT_DCPERIOD': ht_dcperiod1
+}
